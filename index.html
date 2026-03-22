@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>엘리트 고교: 시험지 유출 사건</title>
+  <style>
+    :root {
+      --primary: #2c3e50;
+      --accent: #e74c3c;
+      --bg: #ecf0f1;
+    }
+    body { font-family: 'Pretendard', sans-serif; background: var(--bg); color: var(--primary); display: flex; flex-direction: column; align-items: center; padding: 20px; }
+    .container { max-width: 800px; width: 100%; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+    h1 { text-align: center; color: var(--primary); border-bottom: 2px solid var(--primary); padding-bottom: 10px; }
+    
+    .suspects { display: flex; justify-content: space-around; margin: 20px 0; gap: 10px; }
+    .suspect-card { flex: 1; border: 2px solid #ddd; border-radius: 10px; padding: 15px; text-align: center; cursor: pointer; transition: 0.3s; background: #f9f9f9; }
+    .suspect-card:hover { border-color: var(--accent); transform: translateY(-5px); }
+    .suspect-card.active { border-color: var(--accent); background: #fff5f5; }
+    .suspect-card img { width: 60px; height: 60px; background: #ccc; border-radius: 50%; display: block; margin: 0 auto 10px; }
+
+    .controls { display: flex; flex-direction: column; gap: 15px; margin-top: 20px; }
+    select, button { padding: 12px; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; cursor: pointer; }
+    button { background: var(--primary); color: white; border: none; transition: 0.3s; }
+    button:hover { background: #34495e; }
+    .guess-btn { background: var(--accent); margin-top: 10px; font-weight: bold; }
+
+    #log { height: 200px; overflow-y: auto; background: #1e272e; color: #dcdde1; padding: 15px; border-radius: 8px; margin-top: 20px; font-family: monospace; line-height: 1.6; }
+    .log-entry { margin-bottom: 8px; border-bottom: 1px solid #3d3d3d; padding-bottom: 4px; }
+    .log-entry.system { color: #f1c40f; }
+
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 100; }
+    .modal-content { background: white; padding: 40px; border-radius: 15px; text-align: center; max-width: 500px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>🔍 시험지 유출 사건 수사</h1>
+  <p>어제 저녁, 교무실에서 기말고사 수학 시험지가 유출되었습니다.<br>용의자 3명의 알리바이를 조사하고 범인을 검거하세요.</p>
+
+  <div class="suspects">
+    <div class="suspect-card" id="card-민수" onclick="selectSuspect('민수')">
+      <div style="font-size: 40px;">👦</div>
+      <strong>민수</strong><br><small>평범한 학생</small>
+    </div>
+    <div class="suspect-card" id="card-지훈" onclick="selectSuspect('지훈')">
+      <div style="font-size: 40px;">🤓</div>
+      <strong>지훈</strong><br><small>전교 2등</small>
+    </div>
+    <div class="suspect-card" id="card-수빈" onclick="selectSuspect('수빈')">
+      <div style="font-size: 40px;">👩</div>
+      <strong>수빈</strong><br><small>지훈의 라이벌</small>
+    </div>
+  </div>
+
+  <div class="controls">
+    <select id="question">
+      <option value="where">사건 발생 시간(저녁 7시)에 어디 있었나?</option>
+      <option value="know">유출 소식을 언제 처음 들었나?</option>
+      <option value="witness">다른 사람을 본 적이 있나?</option>
+    </select>
+    <button onclick="ask()">질문하기</button>
+  </div>
+
+  <div id="log">
+    <div class="log-entry system">[시스템] 수사를 시작합니다. 용의자를 선택하고 질문하십시오.</div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 20px;">
+    <button class="guess-btn" onclick="finalGuess('민수')">민수 검거</button>
+    <button class="guess-btn" onclick="finalGuess('지훈')">지훈 검거</button>
+    <button class="guess-btn" onclick="finalGuess('수빈')">수빈 검거</button>
+  </div>
+</div>
+
+<!-- 결과창 모달 -->
+<div id="resultModal" class="modal">
+  <div class="modal-content">
+    <h2 id="resultTitle">결과</h2>
+    <p id="resultText"></p>
+    <button onclick="location.reload()">다시 시작</button>
+  </div>
+</div>
+
+<script>
+  let selectedSuspect = "";
+  let jihoonLieCount = 0;
+  let hasSubinClue = false;
+
+  function selectSuspect(name) {
+    selectedSuspect = name;
+    document.querySelectorAll('.suspect-card').forEach(card => card.classList.remove('active'));
+    document.getElementById('card-' + name).classList.add('active');
+  }
+
+  function addLog(who, msg, type = "") {
+    const log = document.getElementById('log');
+    const div = document.createElement('div');
+    div.className = 'log-entry ' + type;
+    div.innerHTML = `<strong>${who}:</strong> ${msg}`;
+    log.prepend(div); // 최신 메시지가 위로
+  }
+
+  function ask() {
+    if (!selectedSuspect) {
+      alert("질문할 대상을 선택해주세요!");
+      return;
+    }
+
+    const qType = document.getElementById('question').value;
+    let answer = "";
+
+    if (selectedSuspect === "민수") {
+      if (qType === "where") answer = "저는 6시에 바로 하교해서 집에서 게임하고 있었어요. PC방 접속 기록도 있다고요!";
+      if (qType === "know") answer = "오늘 아침에 학교 오자마자 소문 듣고 알았죠. 깜짝 놀랐어요.";
+      if (qType === "witness") answer = "글쎄요, 학교를 일찍 떠나서 아무도 못 봤어요.";
+    } 
+    
+    else if (selectedSuspect === "수빈") {
+      if (qType === "where") answer = "전 밤 9시까지 도서관에서 공부했어요. 지훈이도 옆 건물에 있는 걸 봤는걸요?";
+      if (qType === "know") answer = "어제 밤에 단톡방에서 대충 들었어요.";
+      if (qType === "witness") {
+        answer = "아! 저녁 7시쯤에 지훈이가 교무실 쪽 복도에서 서성이는 걸 봤어요. 손에 뭘 들고 있었던 것 같은데...";
+        hasSubinClue = true;
+      }
+    } 
+    
+    else if (selectedSuspect === "지훈") {
+      jihoonLieCount++;
+      if (qType === "where") {
+        if (jihoonLieCount < 3) answer = "저는... 저도 집에서 공부 중이었어요. 아무도 못 봤을 겁니다.";
+        else answer = "(당황하며) 사실은... 교무실 근처에 공부 자료를 찾으러 잠시 갔었어요. 하지만 훔치진 않았어요!";
+      } 
+      else if (qType === "know") {
+        answer = "아침에 선생님이 말씀하시는 거 듣고 알았습니다.";
+      } 
+      else if (qType === "witness") {
+        if (hasSubinClue) answer = "수빈이가 저를 봤다고요? 그건... 그냥 지나가던 길이었습니다.";
+        else answer = "아무도 보지 못했습니다.";
+      }
+    }
+
+    addLog(selectedSuspect, answer);
+  }
+
+  function finalGuess(name) {
+    const modal = document.getElementById('resultModal');
+    const title = document.getElementById('resultTitle');
+    const text = document.getElementById('resultText');
+    
+    modal.style.display = 'flex';
+
+    if (name === '지훈') {
+      title.innerText = "🎉 사건 해결! (SUCCESS)";
+      title.style.color = "#27ae60";
+      text.innerText = "범인은 지훈이었습니다! 전교 1등을 하고 싶었던 지훈이는 수빈이에게 밀릴까 봐 불안한 나머지 시험지를 훔쳤습니다. 수빈이의 목격담과 지훈이의 엇갈린 알리바이가 결정적인 증거가 되었습니다.";
+    } else {
+      title.innerText = "❌ 추리 실패 (FAIL)";
+      title.style.color = "#e74c3c";
+      text.innerText = `${name}(은)는 범인이 아니었습니다. 진범은 알리바이가 꼬였던 지훈이었습니다. 다시 도전해보세요!`;
+    }
+  }
+</script>
+
+</body>
+</html>
+
+apiKey: "AIzaSyDLjw0zQjW-hX8sTQyDG0x577FKOGXGyK8",
+  authDomain: "exam-game-web-42965.firebaseapp.com",
+  databaseURL: "https://exam-game-web-42965-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "exam-game-web-42965",
+  storageBucket: "exam-game-web-42965.firebasestorage.app",
+  messagingSenderId: "995763282666",
+  appId: "1:995763282666:web:b951402a9a03e1f1e8ed93"
